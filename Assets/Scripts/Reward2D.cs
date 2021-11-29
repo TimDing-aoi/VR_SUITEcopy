@@ -625,7 +625,14 @@ public class Reward2D : MonoBehaviour
         fireflySize = PlayerPrefs.GetFloat("Size");
         firefly.transform.localScale = new Vector3(fireflySize, fireflySize, 1);
         ratio = PlayerPrefs.GetFloat("Ratio");
-        lineOnOff = 1;//(int)PlayerPrefs.GetFloat("Line OnOff");
+        if (PlayerPrefs.GetFloat("FixedYSpeed") != 0)
+        {
+            lineOnOff = 1;//(int)PlayerPrefs.GetFloat("Line OnOff");
+        }
+        else
+        {
+            lineOnOff = 0;
+        }
         line.transform.localScale = new Vector3(10000f, 0.125f * p_height * 10, 1);
         if (lineOnOff == 1)
         {
@@ -1144,18 +1151,26 @@ public class Reward2D : MonoBehaviour
                                                            //double randNormal =
                                                            //mean + stdDev * randStdNormal; //random normal(mean,stdDev^2)
                 //print(randStdNormal);
-                Vector3 temp = move;
-                move = move + (direction * (float)randStdNormal);
-                velocity_Noised = velocity + (float)randStdNormal;
-                //firefly.transform.position += move * Time.deltaTime;
-                move = temp;
-                timeCounter += 0.0005f; // multiply all this with some speed variable (* speed);
-                float x = 30 * Mathf.Cos(timeCounter);
-                float y = 0;
-                float z = 30 * Mathf.Sin(timeCounter);
-                print(x);
-                print(z);
-                firefly.transform.position = new Vector3(x, y, z);
+                if (PlayerPrefs.GetFloat("FixedYSpeed") != 0)
+                {
+                    //print(timeCounter);
+                    timeCounter += velocity_Noised * 0.001f;
+                    velocity_Noised = velocity + (float)randStdNormal;
+                    float x = (minDrawDistance + maxDrawDistance) * Mathf.Cos(timeCounter) / 2;
+                    float y = 0.0001f;
+                    float z = (minDrawDistance + maxDrawDistance) * Mathf.Sin(timeCounter) / 2;
+                    //print(x);
+                    //print(z);
+                    firefly.transform.position = new Vector3(x, y, z);
+                }
+                else
+                {
+                    Vector3 temp = move;
+                    move = move + (direction * (float)randStdNormal);
+                    velocity_Noised = velocity + (float)randStdNormal;
+                    firefly.transform.position += move * Time.deltaTime;
+                    move = temp;
+                }
             }
 
             if (isEnd)
@@ -1330,8 +1345,10 @@ public class Reward2D : MonoBehaviour
         currPhase = Phases.begin;
         isBegin = true;
         loopCount = 0;
-
-
+        
+        if (lineOnOff == 1) line.SetActive(true);
+        player.transform.rotation = Quaternion.Euler(0.0f, 0.0f, 0.0f);
+        player.transform.position = Vector3.up * p_height;
         //Nasta Added for sequential
 
         if (nFF > 1 && multiMode == 1)
@@ -1555,6 +1572,13 @@ public class Reward2D : MonoBehaviour
                 position = (player.transform.position - new Vector3(0.0f, p_height, 0.0f)) + Quaternion.AngleAxis(angle, Vector3.up) * player.transform.forward * r;
             }
             position.y = 0.0001f;
+            if (PlayerPrefs.GetFloat("FixedYSpeed") != 0)
+            {
+                float x = (minDrawDistance + maxDrawDistance) * Mathf.Cos(0f) / 2;
+                float y = 0;
+                float z = (minDrawDistance + maxDrawDistance) * Mathf.Sin(0f) / 2;
+                position = new Vector3(x, y, z);
+            }
             firefly.transform.position = position;
             ffPositions.Add(position);
         }
@@ -1598,9 +1622,6 @@ public class Reward2D : MonoBehaviour
         {
             await new WaitUntil(() => Mathf.Abs(SharedJoystick.currentSpeed) <= velocityThreshold && Mathf.Abs(SharedJoystick.currentRot) <= rotationThreshold); // Used to be rb.velocity.magnitude
         }
-
-        
-        if (lineOnOff == 1) line.SetActive(true);
 
         // Here, I do something weird to the Vector3. "F8" is how many digits I want when I
         // convert to string, Trim takes off the parenthesis at the beginning and end of 
@@ -1648,7 +1669,6 @@ public class Reward2D : MonoBehaviour
             //if ((float)rand.NextDouble() < moveRatio)
             //{
             float r = (float)rand.NextDouble();
-
             if (r <= v_ratios[0])
             {
                 //v1
@@ -2456,8 +2476,8 @@ public class Reward2D : MonoBehaviour
             ffPosStr = "";
 
             isTimeout = false;
-            player.transform.position = Vector3.up * p_height;
-            player.transform.rotation = Quaternion.Euler(0.0f, 0.0f, 0.0f);
+            //player.transform.position = Vector3.up * p_height;
+            //player.transform.rotation = Quaternion.Euler(0.0f, 0.0f, 0.0f);
 
             if (isMoving)
             {
@@ -2489,10 +2509,13 @@ public class Reward2D : MonoBehaviour
                 answer.Add(0);
             }
 
-            //player.transform.rotation = Quaternion.Euler(0.0f, 0.0f, 0.0f);
-            //player.transform.position = Vector3.up * p_height;
+            if (PlayerPrefs.GetFloat("FixedYSpeed") == 0)
+            {
+                player.transform.rotation = Quaternion.Euler(0.0f, 0.0f, 0.0f);
+                player.transform.position = Vector3.up * p_height;
+            }
 
-            if (!proximity && (PlayerPrefs.GetInt("Feedback ON") == 1))
+            if (!proximity && (PlayerPrefs.GetInt("Feedback ON") == 1) && PlayerPrefs.GetFloat("FixedYSpeed") == 0)
             {
                 currPhase = Phases.feedback;
                 firefly.SetActive(true);
@@ -2520,7 +2543,7 @@ public class Reward2D : MonoBehaviour
             // Debug.Log("Check Phase End.");
         }
 
-
+        timeCounter = 0;
     }
 
     void SetFireflyLocation()
@@ -3622,6 +3645,10 @@ public class Reward2D : MonoBehaviour
 
             xmlWriter.WriteStartElement("VN12");
             xmlWriter.WriteString(PlayerPrefs.GetFloat("VN12").ToString());
+            xmlWriter.WriteEndElement();
+
+            xmlWriter.WriteStartElement("FixedYSpeed");
+            xmlWriter.WriteString(PlayerPrefs.GetFloat("FixedYSpeed").ToString());
             xmlWriter.WriteEndElement();
 
             xmlWriter.WriteEndElement();
