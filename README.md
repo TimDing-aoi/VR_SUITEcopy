@@ -3,4 +3,4 @@
 ### 1. Moving Fire Fly (FF) task
 ### 2. Sequential FF task
 ### 3. Stochastic FF task
-### 4. Joystic perturbation task
+### 4. Joystick perturbation task
